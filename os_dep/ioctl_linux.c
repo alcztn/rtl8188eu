@@ -1611,21 +1611,15 @@ static int rtw_wx_get_essid(struct net_device *dev,
 	if ((check_fwstate(pmlmepriv, _FW_LINKED)) ||
 	    (check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE))) {
 		len = pcur_bss->Ssid.SsidLength;
-
-		wrqu->essid.length = len;
-
 		memcpy(extra, pcur_bss->Ssid.Ssid, len);
-
-		wrqu->essid.flags = 1;
 	} else {
-		ret = -1;
-		goto exit;
+		len = 0;
+		*extra = 0;
 	}
+	wrqu->essid.length = len;
+	wrqu->essid.flags = 1;
 
 exit:
-
-	
-
 	return ret;
 }
 
@@ -3162,7 +3156,7 @@ static int rtw_p2p_get_go_device_address(struct net_device *dev,
 	uint p2pielen = 0, attr_contentlen = 0;
 	u8 attr_content[100] = {0x00};
 
-	u8 go_devadd_str[17 + 10] = {0x00};
+	u8 go_devadd_str[100 + 10] = {0x00};
 	/*  +10 is for the str "go_devadd =", we have to clear it at wrqu->data.pointer */
 
 	/*	Commented by Albert 20121209 */
@@ -3219,7 +3213,7 @@ static int rtw_p2p_get_go_device_address(struct net_device *dev,
 	if (!blnMatch)
 		sprintf(go_devadd_str, "\n\ndev_add = NULL");
 	else
-		sprintf(go_devadd_str, "\n\ndev_add =%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
+		sprintf(go_devadd_str, "\ndev_add =%.2X:%.2X:%.2X:%.2X:%.2X:%.2X",
 			attr_content[0], attr_content[1], attr_content[2], attr_content[3], attr_content[4], attr_content[5]);
 
 	if (copy_to_user(wrqu->data.pointer, go_devadd_str, 10 + 17))
@@ -5536,7 +5530,7 @@ static int rtw_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
 		goto out;
 	}
 
-	if (!p->pointer) {
+	if (!p->pointer || p->length > (sizeof(struct ieee_param) + 100)) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -5597,7 +5591,7 @@ static int rtw_hostapd_ioctl(struct net_device *dev, struct iw_point *p)
 		ret = rtw_ioctl_acl_remove_sta(dev, param, p->length);
 		break;
 	default:
-		DBG_88E("Unknown hostapd request: %d\n", param->cmd);
+		pr_info("Unknown hostapd request: %d\n", param->cmd);
 		ret = -EOPNOTSUPP;
 		break;
 	}
@@ -5768,13 +5762,13 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		sprintf(extra, "\n");
 		for (i = 0; i < EFUSE_MAP_SIZE; i += 16) {
-			sprintf(extra, "%s0x%02x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%02x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, PROMContent[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", PROMContent[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, PROMContent[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", PROMContent[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "realmap") == 0) {
 		mapLen = EFUSE_MAP_SIZE;
@@ -5786,13 +5780,13 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		sprintf(extra, "\n");
 		for (i = 0; i < EFUSE_MAP_SIZE; i += 16) {
-			sprintf(extra, "%s0x%02x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%02x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeEfuseInitMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeEfuseInitMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "rmap") == 0) {
 		if ((tmp[1] == NULL) || (tmp[2] == NULL)) {
@@ -5828,7 +5822,7 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		*extra = 0;
 		for (i = 0; i < cnts; i++)
-			sprintf(extra, "%s0x%02X ", extra, data[i]);
+			sprintf(extra + strlen(extra), "0x%02X ", data[i]);
 	} else if (strcmp(tmp[0], "realraw") == 0) {
 		addr = 0;
 		mapLen = EFUSE_MAX_SIZE;
@@ -5840,14 +5834,14 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		sprintf(extra, "\n");
 		for (i = 0; i < mapLen; i++) {
-			sprintf(extra, "%s%02X", extra, rawdata[i]);
+			sprintf(extra + strlen(extra), "%02X", rawdata[i]);
 
 			if ((i & 0xF) == 0xF)
-				sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "\n");
 			else if ((i & 0x7) == 0x7)
-				sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "\t");
 			else
-				sprintf(extra, "%s ", extra);
+				sprintf(extra + strlen(extra), " ");
 		}
 	} else if (strcmp(tmp[0], "mac") == 0) {
 		cnts = 6;
@@ -5867,9 +5861,9 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		*extra = 0;
 		for (i = 0; i < cnts; i++) {
-			sprintf(extra, "%s%02X", extra, data[i]);
+			sprintf(extra + strlen(extra), "%02X", data[i]);
 			if (i != (cnts-1))
-				sprintf(extra, "%s:", extra);
+				sprintf(extra + strlen(extra), ":");
 		}
 	} else if (strcmp(tmp[0], "vidpid") == 0) {
 		cnts = 4;
@@ -5888,9 +5882,9 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		*extra = 0;
 		for (i = 0; i < cnts; i++) {
-			sprintf(extra, "%s0x%02X", extra, data[i]);
+			sprintf(extra + strlen(extra), "0x%02X", data[i]);
 			if (i != (cnts-1))
-				sprintf(extra, "%s,", extra);
+				sprintf(extra + strlen(extra), ",");
 		}
 	} else if (strcmp(tmp[0], "ableraw") == 0) {
 		efuse_GetCurrentSize(padapter, &raw_cursize);
@@ -5907,13 +5901,13 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 		sprintf(extra, "\n");
 		for (i = 0; i < 512; i += 16) {
 			/*  set 512 because the iwpriv's extra size have limit 0x7FF */
-			sprintf(extra, "%s0x%03x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%03x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->BTEfuseInitMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->BTEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->BTEfuseInitMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->BTEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "btbmap") == 0) {
 		mapLen = EFUSE_BT_MAX_MAP_LEN;
@@ -5925,13 +5919,13 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		sprintf(extra, "\n");
 		for (i = 512; i < 1024; i += 16) {
-			sprintf(extra, "%s0x%03x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%03x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->BTEfuseInitMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->BTEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->BTEfuseInitMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->BTEfuseInitMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "btrmap") == 0) {
 		if ((tmp[1] == NULL) || (tmp[2] == NULL)) {
@@ -5966,39 +5960,39 @@ static int rtw_mp_efuse_get(struct net_device *dev,
 
 		*extra = 0;
 		for (i = 0; i < cnts; i++)
-			sprintf(extra, "%s 0x%02X ", extra, data[i]);
+			sprintf(extra + strlen(extra), " 0x%02X ", data[i]);
 	} else if (strcmp(tmp[0], "btffake") == 0) {
 		sprintf(extra, "\n");
 		for (i = 0; i < 512; i += 16) {
-			sprintf(extra, "%s0x%03x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%03x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "btbfake") == 0) {
 		sprintf(extra, "\n");
 		for (i = 512; i < 1024; i += 16) {
-			sprintf(extra, "%s0x%03x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%03x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeBTEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else if (strcmp(tmp[0], "wlrfkmap") == 0) {
 		sprintf(extra, "\n");
 		for (i = 0; i < EFUSE_MAP_SIZE; i += 16) {
-			sprintf(extra, "%s0x%02x\t", extra, i);
+			sprintf(extra + strlen(extra), "0x%02x\t", i);
 			for (j = 0; j < 8; j++)
-				sprintf(extra, "%s%02X ", extra, pEfuseHal->fakeEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\t", extra);
+				sprintf(extra + strlen(extra), "%02X ", pEfuseHal->fakeEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\t");
 			for (; j < 16; j++)
-				sprintf(extra, "%s %02X", extra, pEfuseHal->fakeEfuseModifiedMap[i+j]);
-			sprintf(extra, "%s\n", extra);
+				sprintf(extra + strlen(extra), " %02X", pEfuseHal->fakeEfuseModifiedMap[i+j]);
+			sprintf(extra + strlen(extra), "\n");
 		}
 	} else {
 		 sprintf(extra, "Command not found!");

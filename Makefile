@@ -26,6 +26,7 @@ CONFIG_WOWLAN = n
 
 export TopDIR ?= $(shell pwd)
 
+MSG="Directory .git does not exist indicating that you downloaded the source as a zip file. Only the 'git clone' method is now supported."
 
 OUTSRC_FILES :=				\
 		hal/HalHWImg8188E_MAC.o	\
@@ -93,12 +94,12 @@ ifeq ($(CONFIG_WOWLAN), y)
 EXTRA_CFLAGS += -DCONFIG_WOWLAN
 endif
 
-SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ | sed -e s/ppc/powerpc/ | sed -e s/armv.l/arm/)
+SUBARCH := $(shell uname -m | sed -e "s/i.86/i386/; s/ppc.*/powerpc/; s/armv.l/arm/; s/aarch64/arm64/;")
 
 ARCH ?= $(SUBARCH)
 CROSS_COMPILE ?=
-KVER  := $(shell uname -r)
-KSRC ?= /lib/modules/$(KVER)/build
+KVER  ?= $(if $(KERNELRELEASE),$(KERNELRELEASE),$(shell uname -r))
+KSRC ?= $(if $(KERNEL_SRC),$(KERNEL_SRC),/lib/modules/$(KVER)/build)
 MODDESTDIR := /lib/modules/$(KVER)/kernel/drivers/net/wireless
 INSTALL_PREFIX :=
 
@@ -127,7 +128,7 @@ rtk_core :=				\
 		core/rtw_sreset.o	\
 		core/rtw_sta_mgt.o	\
 		core/rtw_wlan_util.o	\
-		core/rtw_xmit.o	
+		core/rtw_xmit.o
 
 8188eu-y += $(rtk_core)
 
@@ -145,7 +146,10 @@ obj-$(CONFIG_RTL8188EU) := 8188eu.o
 
 endif
 
-all: modules
+all: test modules
+
+test:
+	@if [ !  -e  ./.git ] ; then echo $(MSG); exit 1; fi;
 
 modules:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KSRC) M=$(shell pwd)  modules
@@ -154,6 +158,7 @@ strip:
 	$(CROSS_COMPILE)strip 8188eu.ko --strip-unneeded
 
 install:
+	@mkdir -p $(MODDESTDIR)
 	install -p -m 644 8188eu.ko  $(MODDESTDIR)
 	@if [ -a /lib/modules/$(KVER)/kernel/drivers/staging/rtl8188eu/r8188eu.ko ] ; then modprobe -r r8188eu; fi;
 	@echo "blacklist r8188eu" > /etc/modprobe.d/50-8188eu.conf
@@ -161,6 +166,9 @@ install:
 	/sbin/depmod -a ${KVER}
 	mkdir -p /lib/firmware/rtlwifi
 	cp rtl8188eufw.bin /lib/firmware/rtlwifi/.
+
+modules_install:
+	$(MAKE) -C $(KSRC) M=$(shell pwd) modules_install
 
 uninstall:
 	rm -f $(MODDESTDIR)/8188eu.ko
@@ -183,4 +191,3 @@ clean: $(clean_more)
 	cd core ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
 	cd hal ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
 	cd os_dep ; rm -fr *.mod.c *.mod *.o .*.cmd *.ko
-
