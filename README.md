@@ -4,13 +4,13 @@ Beginning on November 4, 2019, I will NO LONGER support people that have downloa
 as a zip file. Using git has much more flexibility. In addition, there is much less likelihood
 that a user will contact me with a problem that is ALREADY fixed.
 
-If your system says that /lib/modules/...../build does not exist, you have not
+If your system says that `/lib/modules/...../build` does not exist, you have not
 installed the kernel headers, you have done it incorrectly, or you are not running
 the kernel for which the headers have been installed. The necessary steps are
 dependent on which distro you are using. Creating a new issue and asking at
 GitHub will not be productive.
 
-Your kernel configuration MUST have CONFIG_WIRELESS_EXT set.
+Your kernel configuration MUST have `CONFIG_WIRELESS_EXT` set.
 
 Unsolicited E-mail sent to my private address will be ignored!!
 
@@ -26,28 +26,28 @@ Repository for the stand-alone RTL8188EU driver.
 
 Compiling & Building
 ---------
-### Dependencies
+#### Dependencies
 To compile the driver, you need to have make and a compiler installed. In addition,
 you must have the kernel headers installed. If you do not understand what this means,
 consult your distro.
-### Compiling
+#### Compiling
 
-> make all
+```
+ma#ke all
+```
 
-### Installing
+#### Installing
 
-> sudo make install
-
-Submitting Issues
----------
+```
+sudo make install
+```
 
 Frequently asked Questions
 ---------
+#### The network manager says: "Device is not ready"!
+Make sure you copied the firmware (rtl8188eufw.bin) to `/lib/firmware/rtlwifi/`
 
-### The network manager says: "Device is not ready"!
-Make sure you copied the firmware (rtl8188eufw.bin) to /lib/firmware/rtlwifi/
-
-### NetworkManager does not list SSID
+#### NetworkManager does not list SSID
 NetworkManager changes the Wi-Fi MAC address during scanning to improve privacy but this adapter does not support it. To address this issue, please create `/etc/NetworkManager/conf.d/80-wifi.conf` with content:
 
 ```
@@ -55,4 +55,7 @@ NetworkManager changes the Wi-Fi MAC address during scanning to improve privacy 
 wifi.scan-rand-mac-address=no
 ```
 
-and run `systemctl restart NetworkManager`
+and run 
+```
+systemctl restart NetworkManager
+```
