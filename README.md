@@ -33,7 +33,7 @@ consult your distro.
 #### Compiling
 
 ```
-ma#ke all
+make all
 ```
 
 #### Installing
